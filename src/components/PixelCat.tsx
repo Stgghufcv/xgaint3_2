@@ -2,12 +2,21 @@ import { motion } from 'framer-motion';
 
 interface PixelCatProps {
   hideLabel?: boolean;
+  /** 与 PixelSprite 名牌一致；默认 Mochi */
+  name?: string;
+  /** 名牌左侧状态点，与场景内其他角色一致 */
+  statusColor?: string;
 }
 
-export default function PixelCat({ hideLabel = false }: PixelCatProps) {
+export default function PixelCat({ hideLabel = false, name = 'Mochi', statusColor }: PixelCatProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-      {!hideLabel ? <div className="name-tag">Mochi 🐱</div> : null}
+      {!hideLabel ? (
+        <div className="name-tag" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {statusColor ? <div className="status-dot" style={{ background: statusColor }} /> : null}
+          <span>{name}</span>
+        </div>
+      ) : null}
       <motion.div
         animate={{
           scaleY: [1, 1.06, 1],

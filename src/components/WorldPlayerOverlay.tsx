@@ -53,7 +53,6 @@ export default function WorldPlayerOverlay({
           name="You"
           statusColor={statusColor}
           scale={2.2}
-          hideLabel
           walking={motionPhase === 'petWalk'}
         />
       </div>

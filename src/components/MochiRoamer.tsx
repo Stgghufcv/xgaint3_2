@@ -141,7 +141,7 @@ export default function MochiRoamer({ pettingActive, onPetCat }: MochiRoamerProp
       }}
     >
       <div style={{ pointerEvents: 'none', transform: hover ? 'scale(1.03)' : undefined, transition: 'transform 0.2s' }}>
-        <PixelCat hideLabel />
+        <PixelCat name="Mochi" statusColor="#C8A87A" />
       </div>
     </motion.button>
   );
