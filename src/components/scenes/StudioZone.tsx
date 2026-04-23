@@ -6,8 +6,10 @@ interface StudioZoneProps {
   playerState: PlayerState;
   statusColor: string;
   userInputLocked: boolean;
-  onWorldBackgroundClick: (localX: number, localY: number) => void;
+  zoneNavLocked: boolean;
+  onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
+  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
 function PixelDesk({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
@@ -149,15 +151,17 @@ export default function StudioZone({
   playerState: _playerState,
   statusColor: _statusColor,
   userInputLocked,
+  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
+  onNavigateToZone,
 }: StudioZoneProps) {
   const handleZoneClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (userInputLocked || e.button !== 0) return;
       if ((e.target as HTMLElement).closest('button, a, [role="dialog"], [role="button"]')) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top);
+      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top, rect.height);
     },
     [onWorldBackgroundClick, userInputLocked],
   );
@@ -167,7 +171,8 @@ export default function StudioZone({
       onClick={handleZoneClick}
       style={{
         width: '100vw',
-        height: '100dvh',
+        height: '100%',
+        minHeight: 0,
         position: 'relative',
         background: 'linear-gradient(180deg, #D6CFC4 32%, #C8935A 32%)',
         overflow: 'hidden',
@@ -181,7 +186,7 @@ export default function StudioZone({
 
       {/* Plants */}
       <PixelPlant x={316} y={88} size={0.85} />
-      <PixelPlant x={302} y={492} />
+      <PixelPlant x={302} y={358} />
 
       {/* Rug — between desk rows */}
       <PixelRug x={108} y={312} />
@@ -193,14 +198,60 @@ export default function StudioZone({
       {/* ── Desk Row 2: Orion (centre) ── */}
       <PixelDesk x={134} y={412} />
 
-      {/* Doorway to Lounge — right edge */}
-      <div
+      {/* Doorway to Plaza — left edge（与 Lounge 右侧 Plaza 门镜像） */}
+      <button
+        type="button"
+        aria-label="前往 Plaza"
+        disabled={zoneNavLocked}
+        onClick={e => {
+          e.stopPropagation();
+          onNavigateToZone(2);
+        }}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: '28%',
+          width: 46,
+          height: '42%',
+          zIndex: 6,
+          border: 'none',
+          margin: 0,
+          padding: 0,
+          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+          background: 'linear-gradient(90deg, rgba(166,216,155,0.25), transparent)',
+          borderRight: '3px solid #8BC78A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
+          Plaza →
+        </span>
+      </button>
+
+      {/* Doorway to Lounge — right edge（与 Lounge 门同宽） */}
+      <button
+        type="button"
+        aria-label="前往 Lounge"
+        disabled={zoneNavLocked}
+        onClick={e => {
+          e.stopPropagation();
+          onNavigateToZone(1);
+        }}
         style={{
           position: 'absolute',
           right: 0,
-          top: '30%',
-          width: 52,
-          height: '38%',
+          top: '28%',
+          width: 46,
+          height: '42%',
+          zIndex: 6,
+          border: 'none',
+          margin: 0,
+          padding: 0,
+          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+          WebkitTapHighlightColor: 'transparent',
           background: 'linear-gradient(90deg, transparent, rgba(230,244,234,0.4))',
           borderLeft: '3px solid #C8B89A',
           display: 'flex',
@@ -208,8 +259,10 @@ export default function StudioZone({
           justifyContent: 'center',
         }}
       >
-        <div className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>Lounge →</div>
-      </div>
+        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
+          Lounge →
+        </span>
+      </button>
 
       {/* Nova at desk 1-right */}
       <div
@@ -252,7 +305,6 @@ export default function StudioZone({
       >
         <PixelSprite variant="assistant2" name="Orion" statusColor="#2196F3" scale={2.2} />
       </div>
-
     </div>
   );
 }

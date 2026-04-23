@@ -1,23 +1,38 @@
-import { useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import PixelSprite from '../PixelSprite';
 import type { PlayerState } from '../../hooks/usePlayerState';
+import { zoneBleedBackgroundLayer } from '../../zoneBleedBackground';
 
 interface PlazaZoneProps {
   playerState: PlayerState;
   statusColor: string;
-  onTaskClick: (task: string) => void;
   userInputLocked: boolean;
-  onWorldBackgroundClick: (localX: number, localY: number) => void;
+  zoneNavLocked: boolean;
+  onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
+  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
-function PixelTree({ x, y, size = 1 }: { x: number; y: number; size?: number }) {
-  const w = 40 * size, h = 56 * size;
+/** 布局坐标系最大宽（略大于最右装饰） */
+const PLAZA_LAYOUT_W = 402;
+/** 布局坐标系最大高（草地 y=728 + 高 24） */
+const PLAZA_LAYOUT_H = 752;
+
+/** Studio 内 NPC（如 Orion）的 PixelSprite scale；Plaza 内对齐其屏幕身高 */
+const PLAZA_NPC_BASE_SCALE = 2.2;
+/** 相对 Studio 略放大一点，户外场景更易辨认 */
+const PLAZA_READABILITY_MUL = 1.05;
+/** 舞台内人物与物件整体上移（布局坐标 px） */
+const PLAZA_SCENE_NUDGE_UP_PX = 200;
+
+function PixelTree({ x, y, size = 1, boost = 1 }: { x: number; y: number; size?: number; boost?: number }) {
+  const w = 40 * size * boost,
+    h = 56 * size * boost;
   return (
     <svg
       className="sprite"
-      width={w} height={h}
+      width={w}
+      height={h}
       viewBox="0 0 20 28"
       style={{ position: 'absolute', left: x, top: y }}
       xmlns="http://www.w3.org/2000/svg"
@@ -35,11 +50,14 @@ function PixelTree({ x, y, size = 1 }: { x: number; y: number; size?: number }) 
   );
 }
 
-function PixelPond({ x, y }: { x: number; y: number }) {
+function PixelPond({ x, y, boost = 1 }: { x: number; y: number; boost?: number }) {
+  const bw = 120 * boost,
+    bh = 60 * boost;
   return (
     <svg
       className="sprite"
-      width="120" height="60"
+      width={bw}
+      height={bh}
       viewBox="0 0 60 30"
       style={{ position: 'absolute', left: x, top: y }}
       xmlns="http://www.w3.org/2000/svg"
@@ -58,11 +76,14 @@ function PixelPond({ x, y }: { x: number; y: number }) {
   );
 }
 
-function PixelBench({ x, y, flip = false }: { x: number; y: number; flip?: boolean }) {
+function PixelBench({ x, y, flip = false, boost = 1 }: { x: number; y: number; flip?: boolean; boost?: number }) {
+  const bw = 70 * boost,
+    bh = 36 * boost;
   return (
     <svg
       className="sprite"
-      width="70" height="36"
+      width={bw}
+      height={bh}
       viewBox="0 0 35 18"
       style={{ position: 'absolute', left: x, top: y, transform: flip ? 'scaleX(-1)' : undefined }}
       xmlns="http://www.w3.org/2000/svg"
@@ -79,12 +100,15 @@ function PixelBench({ x, y, flip = false }: { x: number; y: number; flip?: boole
   );
 }
 
-function PixelGrass({ x, y, width }: { x: number; y: number; width: number }) {
+function PixelGrass({ x, y, width, boost = 1 }: { x: number; y: number; width: number; boost?: number }) {
   const blades = Math.floor(width / 8);
+  const w = width * boost,
+    gh = 24 * boost;
   return (
     <svg
       className="sprite"
-      width={width} height="24"
+      width={w}
+      height={gh}
       viewBox={`0 0 ${Math.round(width / 2)} 12`}
       style={{ position: 'absolute', left: x, top: y }}
       xmlns="http://www.w3.org/2000/svg"
@@ -99,218 +123,230 @@ function PixelGrass({ x, y, width }: { x: number; y: number; width: number }) {
   );
 }
 
-const TASKS = [
-  { id: 'launch', emoji: '🚀', label: 'Launch v1.2', tag: 'TODAY', color: '#E74C3C' },
-  { id: 'review', emoji: '📋', label: 'Review PRD', tag: 'IN PROGRESS', color: '#F39C12' },
-  { id: 'pitch', emoji: '💼', label: 'Investor Pitch Deck', tag: 'UPCOMING', color: '#3498DB' },
-  { id: 'collab', emoji: '🤝', label: 'Collab: OPC_Studio_47', tag: 'NEW', color: '#9B59B6' },
-];
-
-function TaskBoard({ onTaskClick }: { onTaskClick: (task: string) => void }) {
-  return (
-    <motion.div
-      onClick={e => e.stopPropagation()}
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3, duration: 0.5 }}
-      className="glass-panel"
-      style={{
-        position: 'absolute',
-        left: 16,
-        right: 16,
-        top: 52,
-        padding: '14px 14px',
-        zIndex: 20,
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <div style={{
-            width: 24, height: 24, borderRadius: 7,
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12,
-          }}>📌</div>
-          <div>
-            <div style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 13, color: '#1a1a2e' }}>OPC Task Board</div>
-            <div style={{ fontFamily: 'Inter', fontSize: 10, color: '#888', fontWeight: 400 }}>Q2 Sprint · 4 active</div>
-          </div>
-        </div>
-        <div style={{
-          fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
-          color: '#27AE60', background: 'rgba(39,174,96,0.1)',
-          borderRadius: 100, padding: '2px 8px',
-          border: '0.33px solid rgba(39,174,96,0.3)',
-        }}>LIVE</div>
-      </div>
-
-      {/* Task list — 2-column grid for portrait width */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        {TASKS.map(task => (
-          <motion.button
-            key={task.id}
-            onClick={() => onTaskClick(task.label)}
-            whileHover={{ scale: 1.02, backgroundColor: 'rgba(0,0,0,0.03)' }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5,
-              padding: '9px 10px',
-              background: 'rgba(255,255,255,0.55)',
-              border: '0.33px solid rgba(0,0,0,0.08)',
-              borderRadius: 10,
-              cursor: 'pointer',
-              textAlign: 'left',
-              width: '100%',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>{task.emoji}</span>
-              <div style={{
-                fontFamily: 'Inter', fontSize: 8, fontWeight: 700,
-                color: task.color,
-                background: `${task.color}18`,
-                border: `0.33px solid ${task.color}50`,
-                borderRadius: 100,
-                padding: '1px 5px',
-                letterSpacing: '0.3px',
-              }}>{task.tag}</div>
-            </div>
-            <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 500, color: '#1a1a2e', lineHeight: 1.3 }}>{task.label}</div>
-          </motion.button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 export default function PlazaZone({
   playerState: _playerState,
   statusColor: _statusColor,
-  onTaskClick,
   userInputLocked,
+  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
+  onNavigateToZone,
 }: PlazaZoneProps) {
-  const handleZoneClick = useCallback(
+  const [plazaScale, setPlazaScale] = useState(1);
+  const stageWrapRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = stageWrapRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w < 8) return;
+      // 仅按宽度适配整舞台，避免 h/752 把人物与道具压得过小（仍只影响 Plaza 本文件内舞台）
+      setPlazaScale(Math.min(1, w / PLAZA_LAYOUT_W));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleStageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (userInputLocked || e.button !== 0) return;
       if ((e.target as HTMLElement).closest('button, a, [role="dialog"], [role="button"]')) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top);
+      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top, rect.height);
     },
     [onWorldBackgroundClick, userInputLocked],
   );
 
+  const plazaGradient = 'linear-gradient(180deg, #C8E6C9 0%, #E6F4EA 40%, #A5D6A7 100%)';
+
+  // 抵消舞台 scale(plazaScale)：屏幕上身形 ≈ Studio Orion（24×2.2）；窄屏原先被 Math.min(3.4,…) 截断会仍偏小
+  const p = Math.max(plazaScale, 0.2);
+  const rawBoost = PLAZA_READABILITY_MUL / p;
+  const maxBoost = 5.2 / PLAZA_NPC_BASE_SCALE;
+  const contentBoost = plazaScale >= 0.998 ? 1 : Math.min(maxBoost, rawBoost);
+  const npcSpriteScale = Math.min(5.2, PLAZA_NPC_BASE_SCALE * contentBoost);
+  const liftPx =
+    contentBoost > 1.012 ? Math.min(58, Math.round(12 + (contentBoost - 1) * 52)) : 0;
+
   return (
     <div
-      onClick={handleZoneClick}
       style={{
         width: '100vw',
-        height: '100dvh',
+        height: '100%',
+        minHeight: 0,
         position: 'relative',
-        background: 'linear-gradient(180deg, #C8E6C9 0%, #E6F4EA 40%, #A5D6A7 100%)',
-        overflow: 'hidden',
+        overflow: 'visible',
+        isolation: 'isolate',
       }}
     >
-      {/* Task board — anchored to top in portrait */}
-      <TaskBoard onTaskClick={onTaskClick} />
-
-      {/* ── Trees — clustered left & right ── */}
-      <PixelTree x={8}   y={310} size={1.2} />
-      <PixelTree x={46}  y={385} size={0.9} />
-      <PixelTree x={300} y={318} size={1.1} />
-      <PixelTree x={326} y={392} size={0.85} />
-      {/* Centre background tree */}
-      <PixelTree x={162} y={300} size={1.0} />
-
-      {/* Pond — horizontally centred */}
-      <PixelPond x={133} y={462} />
-
-      {/* Grass bands */}
-      <PixelGrass x={0}  y={588} width={393} />
-      <PixelGrass x={48} y={658} width={310} />
-      <PixelGrass x={110} y={728} width={220} />
-
-      {/* Benches */}
-      <PixelBench x={68}  y={550} />
-      <PixelBench x={240} y={535} flip />
-
-      {/* Visitor OPCs */}
+      <div aria-hidden style={zoneBleedBackgroundLayer(plazaGradient)} />
       <div
-        role="button"
-        tabIndex={0}
-        aria-label="与 OPC_07 聊天"
-        onClick={e => {
-          e.stopPropagation();
-          onOpenCharacterChat('visitor1');
-        }}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            onOpenCharacterChat('visitor1');
-          }
-        }}
-        style={{ position: 'absolute', left: 68, top: 472, cursor: 'pointer' }}
-      >
-        <PixelSprite variant="visitor1" name="OPC_07" statusColor="#FF9800" scale={2.0} />
-      </div>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="与 OPC_23 聊天"
-        onClick={e => {
-          e.stopPropagation();
-          onOpenCharacterChat('visitor2');
-        }}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            onOpenCharacterChat('visitor2');
-          }
-        }}
-        style={{ position: 'absolute', left: 252, top: 455, cursor: 'pointer' }}
-      >
-        <PixelSprite variant="visitor2" name="OPC_23" statusColor="#2196F3" scale={2.0} flip />
-      </div>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="与 OPC_42 聊天"
-        onClick={e => {
-          e.stopPropagation();
-          onOpenCharacterChat('visitor3');
-        }}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            e.stopPropagation();
-            onOpenCharacterChat('visitor3');
-          }
-        }}
-        style={{ position: 'absolute', left: 156, top: 524, cursor: 'pointer' }}
-      >
-        <PixelSprite variant="visitor3" name="OPC_42" statusColor="#E91E63" scale={2.0} />
-      </div>
-
-      {/* Doorway to Lounge — left */}
-      <div
+        ref={stageWrapRef}
+        role="presentation"
+        onClick={handleStageClick}
         style={{
           position: 'absolute',
           left: 0,
-          top: '28%',
-          width: 46,
-          height: '42%',
-          background: 'linear-gradient(270deg, transparent, rgba(237,232,224,0.35))',
-          borderRight: '3px solid #C8B89A',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 2,
+          // 勿 hidden：人物/道具经 scale+boost 后会超出可视盒，hidden 会在底部裁出「蒙版」感
+          overflow: 'visible',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
+          alignItems: 'flex-start',
         }}
       >
-        <div className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>← Lounge</div>
+        <button
+          type="button"
+          aria-label="前往 Lounge"
+          disabled={zoneNavLocked}
+          onClick={e => {
+            e.stopPropagation();
+            onNavigateToZone(1);
+          }}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '28%',
+            width: 46,
+            height: '42%',
+            zIndex: 6,
+            border: 'none',
+            margin: 0,
+            padding: 0,
+            cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+            background: 'linear-gradient(270deg, transparent, rgba(237,232,224,0.35))',
+            borderRight: '3px solid #C8B89A',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
+            ← Lounge
+          </span>
+        </button>
+        <div
+          style={{
+            width: PLAZA_LAYOUT_W,
+            height: PLAZA_LAYOUT_H,
+            position: 'relative',
+            flexShrink: 0,
+            transform: `translateY(-${liftPx}px) scale(${plazaScale})`,
+            transformOrigin: 'top center',
+          }}
+        >
+          {/* ── Trees — clustered left & right ── */}
+          <PixelTree x={8} y={310 - PLAZA_SCENE_NUDGE_UP_PX} size={1.2} boost={contentBoost} />
+          <PixelTree x={46} y={385 - PLAZA_SCENE_NUDGE_UP_PX} size={0.9} boost={contentBoost} />
+          <PixelTree x={300} y={318 - PLAZA_SCENE_NUDGE_UP_PX} size={1.1} boost={contentBoost} />
+          <PixelTree x={326} y={392 - PLAZA_SCENE_NUDGE_UP_PX} size={0.85} boost={contentBoost} />
+          <PixelTree x={162} y={300 - PLAZA_SCENE_NUDGE_UP_PX} size={1.0} boost={contentBoost} />
+
+          <PixelPond x={133} y={462 - PLAZA_SCENE_NUDGE_UP_PX} boost={contentBoost} />
+
+          <PixelGrass x={0} y={588 - PLAZA_SCENE_NUDGE_UP_PX} width={393} boost={contentBoost} />
+          <PixelGrass x={48} y={658 - PLAZA_SCENE_NUDGE_UP_PX} width={310} boost={contentBoost} />
+          <PixelGrass x={110} y={728 - PLAZA_SCENE_NUDGE_UP_PX} width={220} boost={contentBoost} />
+
+          <PixelBench x={68} y={550 - PLAZA_SCENE_NUDGE_UP_PX} boost={contentBoost} />
+          <PixelBench x={240} y={535 - PLAZA_SCENE_NUDGE_UP_PX} flip boost={contentBoost} />
+
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="与 OPC_07 聊天"
+            onClick={e => {
+              e.stopPropagation();
+              onOpenCharacterChat('visitor1');
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenCharacterChat('visitor1');
+              }
+            }}
+            style={{ position: 'absolute', left: 68, top: 472 - PLAZA_SCENE_NUDGE_UP_PX, cursor: 'pointer' }}
+          >
+            <PixelSprite variant="visitor1" name="OPC_07" statusColor="#FF9800" scale={npcSpriteScale} />
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="与 OPC_23 聊天"
+            onClick={e => {
+              e.stopPropagation();
+              onOpenCharacterChat('visitor2');
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenCharacterChat('visitor2');
+              }
+            }}
+            style={{ position: 'absolute', left: 252, top: 455 - PLAZA_SCENE_NUDGE_UP_PX, cursor: 'pointer' }}
+          >
+            <PixelSprite variant="visitor2" name="OPC_23" statusColor="#2196F3" scale={npcSpriteScale} flip />
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="与 OPC_42 聊天"
+            onClick={e => {
+              e.stopPropagation();
+              onOpenCharacterChat('visitor3');
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenCharacterChat('visitor3');
+              }
+            }}
+            style={{ position: 'absolute', left: 156, top: 524 - PLAZA_SCENE_NUDGE_UP_PX, cursor: 'pointer' }}
+          >
+            <PixelSprite variant="visitor3" name="OPC_42" statusColor="#E91E63" scale={npcSpriteScale} />
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label="前往 Studio"
+          disabled={zoneNavLocked}
+          onClick={e => {
+            e.stopPropagation();
+            onNavigateToZone(0);
+          }}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '28%',
+            width: 46,
+            height: '42%',
+            zIndex: 6,
+            border: 'none',
+            margin: 0,
+            padding: 0,
+            cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+            background: 'linear-gradient(90deg, rgba(214,207,196,0.25), transparent)',
+            borderLeft: '3px solid #C8B89A',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
+            Studio →
+          </span>
+        </button>
       </div>
     </div>
   );

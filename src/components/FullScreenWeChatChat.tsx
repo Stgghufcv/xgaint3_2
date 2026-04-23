@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { getCharacterThread, speakerLabel } from '../characterChatThreads';
+import { getCharacterThread, speakerLabel, type ChatBubble } from '../characterChatThreads';
 import { peerAvatarSpec } from '../characterAvatars';
 import PixelSprite from './PixelSprite';
 import PixelCat from './PixelCat';
@@ -97,15 +97,39 @@ interface FullScreenWeChatChatProps {
   characterId: string;
   scrollToMessageIndex?: number;
   onClose: () => void;
+  /** 任意一方发出最后一条文案时同步到会话列表预览（如侧边栏） */
+  onLastMessageChange?: (threadId: string, text: string) => void;
 }
 
 export default function FullScreenWeChatChat({
   characterId,
   scrollToMessageIndex,
   onClose,
+  onLastMessageChange,
 }: FullScreenWeChatChatProps) {
   const thread = getCharacterThread(characterId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState('');
+  const [sentMessages, setSentMessages] = useState<ChatBubble[]>([]);
+
+  useEffect(() => {
+    setSentMessages([]);
+    setDraft('');
+  }, [characterId]);
+
+  const displayMessages = [...thread.messages, ...sentMessages];
+
+  const sendMessage = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    setSentMessages(prev => [...prev, { from: 'me', text }]);
+    setDraft('');
+    onLastMessageChange?.(characterId, text);
+    requestAnimationFrame(() => {
+      const root = scrollAreaRef.current;
+      if (root) root.scrollTop = root.scrollHeight;
+    });
+  }, [characterId, draft, onLastMessageChange]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -123,7 +147,7 @@ export default function FullScreenWeChatChat({
     if (el instanceof HTMLElement) {
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
-  }, [characterId, scrollToMessageIndex, thread.messages.length]);
+  }, [characterId, scrollToMessageIndex, thread.messages.length, displayMessages.length]);
 
   return (
     <motion.div
@@ -234,7 +258,7 @@ export default function FullScreenWeChatChat({
         >
           — 以下为演示对话 —
         </div>
-        {thread.messages.map((m, i) => {
+        {displayMessages.map((m, i) => {
           const isMe = m.from === 'me';
           return (
             <div
@@ -303,18 +327,59 @@ export default function FullScreenWeChatChat({
         <div
           style={{
             flex: 1,
+            minWidth: 0,
             background: '#fff',
             borderRadius: 6,
             border: '1px solid #e3e3e3',
-            padding: '8px 12px',
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: 15,
-            color: '#b2b2b2',
+            padding: '4px 10px',
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
-          发消息…
+          <input
+            type="text"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder="发消息…"
+            enterKeyHint="send"
+            autoComplete="off"
+            aria-label="输入消息"
+            style={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: 16,
+              color: '#191919',
+              lineHeight: 1.35,
+              padding: '4px 2px',
+            }}
+          />
         </div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#576b95', paddingRight: 4 }}>发送</span>
+        <button
+          type="button"
+          onClick={sendMessage}
+          disabled={!draft.trim()}
+          style={{
+            flexShrink: 0,
+            border: 'none',
+            background: 'transparent',
+            fontSize: 13,
+            fontWeight: 600,
+            color: draft.trim() ? '#576b95' : '#b2b2b2',
+            padding: '8px 4px',
+            cursor: draft.trim() ? 'pointer' : 'default',
+          }}
+        >
+          发送
+        </button>
       </footer>
     </motion.div>
   );

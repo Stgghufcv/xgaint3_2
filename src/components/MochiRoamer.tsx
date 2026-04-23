@@ -1,30 +1,56 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import PixelCat from './PixelCat';
+import { worldPlayInnerHeightPx } from '../worldUserLayout';
 
 /** 移动速度降为原来的 15%（降低 85%）→ 同样路程动画时长约为原来的 1/0.15 倍 */
 const CAT_MOVE_SLOWDOWN = 1 / (1 - 0.85);
+/** 在以上基础上再加快 600%（即 7 倍速）→ 位移动画 duration 除以该系数 */
+const CAT_MOVE_SPEEDUP = 1 + 6;
+
+/** 猫咪只在 Studio / Lounge 游走，不进入 Plaza 列；Lounge 内靠右上限避免贴 Plaza 门洞 */
+const MAX_LX_STUDIO = 0.82;
+const MAX_LX_LOUNGE = 0.64;
 
 type RoamPos = { zone: 0 | 1; lx: number; ly: number };
 
+function clampLx(zone: 0 | 1, lx: number): number {
+  const cap = zone === 1 ? MAX_LX_LOUNGE : MAX_LX_STUDIO;
+  return Math.max(0.1, Math.min(cap, lx));
+}
+
+function minCatLyNorm(vh: number): number {
+  const playH = worldPlayInnerHeightPx(vh);
+  return Math.min(0.78, 96 / playH);
+}
+
 function randomPos(): RoamPos {
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const lo = minCatLyNorm(vh);
+  const hi = Math.max(lo + 0.06, 0.9);
+  const zone = (Math.random() > 0.45 ? 0 : 1) as 0 | 1;
+  const span = zone === 1 ? Math.max(0.08, MAX_LX_LOUNGE - 0.12) : 0.58;
   return {
-    zone: Math.random() > 0.45 ? 0 : 1,
-    lx: 0.12 + Math.random() * 0.58,
-    ly: 0.38 + Math.random() * 0.42,
+    zone,
+    lx: clampLx(zone, zone === 1 ? 0.12 + Math.random() * span : 0.12 + Math.random() * 0.58),
+    ly: lo + Math.random() * (hi - lo),
   };
 }
 
 /** 慵懒小挪步：多半留在同 zone，坐标微移 */
 function nudgePos(cur: RoamPos): RoamPos {
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const lo = minCatLyNorm(vh);
   const sameZone = Math.random() < 0.84 ? cur.zone : cur.zone === 0 ? 1 : 0;
-  const lx = Math.max(0.1, Math.min(0.82, cur.lx + (Math.random() - 0.5) * 0.14));
-  const ly = Math.max(0.34, Math.min(0.84, cur.ly + (Math.random() - 0.5) * 0.12));
+  const rawLx = cur.lx + (Math.random() - 0.5) * 0.14;
+  const lx = clampLx(sameZone as 0 | 1, rawLx);
+  const ly = Math.max(lo, Math.min(0.88, cur.ly + (Math.random() - 0.5) * 0.12));
   return { zone: sameZone as 0 | 1, lx, ly };
 }
 
 function toPixel(a: RoamPos, vw: number, vh: number) {
-  return { x: a.zone * vw + a.lx * vw, y: a.ly * vh };
+  const playH = worldPlayInnerHeightPx(vh);
+  return { x: a.zone * vw + a.lx * vw, y: a.ly * playH };
 }
 
 function pixelDist(a: RoamPos, b: RoamPos, vw: number, vh: number) {
@@ -36,11 +62,13 @@ function pixelDist(a: RoamPos, b: RoamPos, vw: number, vh: number) {
 interface MochiRoamerProps {
   pettingActive: boolean;
   onPetCat: (clientX: number, clientY: number) => void;
+  /** 当前视口所在列：Plaza(2) 不渲染猫，避免横滑过渡时猫出现在广场层 */
+  viewportZoneIndex: number;
 }
 
-export default function MochiRoamer({ pettingActive, onPetCat }: MochiRoamerProps) {
+export default function MochiRoamer({ pettingActive, onPetCat, viewportZoneIndex }: MochiRoamerProps) {
   const [pos, setPos] = useState<RoamPos>(randomPos);
-  const [moveDuration, setMoveDuration] = useState(3.8 * CAT_MOVE_SLOWDOWN);
+  const [moveDuration, setMoveDuration] = useState((3.8 * CAT_MOVE_SLOWDOWN) / CAT_MOVE_SPEEDUP);
   const hoverPause = useRef(false);
   const posRef = useRef(pos);
   const pettingRef = useRef(pettingActive);
@@ -87,9 +115,10 @@ export default function MochiRoamer({ pettingActive, onPetCat }: MochiRoamerProp
       const cur = posRef.current;
       const next = dice < 0.86 ? nudgePos(cur) : randomPos();
       const dist = pixelDist(cur, next, vw, vh);
-      // 基础时长再按 CAT_MOVE_SLOWDOWN 拉长（速度降为 15%）
+      // 基础时长再按 CAT_MOVE_SLOWDOWN 拉长（速度降为 15%），再按 CAT_MOVE_SPEEDUP 加快
       const baseDur = Math.min(6.8, Math.max(2.7, 2.2 + dist / 95));
-      const dur = Math.min(95, Math.max(17, baseDur * CAT_MOVE_SLOWDOWN));
+      const dur =
+        Math.min(95, Math.max(17, baseDur * CAT_MOVE_SLOWDOWN)) / CAT_MOVE_SPEEDUP;
       setMoveDuration(dur);
       setPos(next);
 
@@ -110,10 +139,14 @@ export default function MochiRoamer({ pettingActive, onPetCat }: MochiRoamerProp
 
   const vw = typeof window !== 'undefined' ? window.innerWidth : 375;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const playH = worldPlayInnerHeightPx(vh);
   const leftPx = pos.zone * vw + pos.lx * vw;
-  const topPx = pos.ly * vh;
+  const topPx = pos.ly * playH;
   const btnLeft = Math.max(12, leftPx - 22);
-  const btnTop = Math.max(72, topPx - 40);
+  const minCatTopLocal = Math.max(8, minCatLyNorm(vh) * playH - 36);
+  const btnTop = Math.max(minCatTopLocal, topPx - 40);
+
+  if (viewportZoneIndex === 2) return null;
 
   return (
     <motion.button

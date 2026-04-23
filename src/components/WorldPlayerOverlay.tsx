@@ -31,8 +31,6 @@ export default function WorldPlayerOverlay({
         inset: 0,
         pointerEvents: 'none',
         zIndex: 40,
-        opacity: fullPresence ? 1 : 0.48,
-        transition: 'opacity 0.35s ease',
       }}
     >
       <div
@@ -41,11 +39,11 @@ export default function WorldPlayerOverlay({
           left: `${worldUserPos.left}%`,
           top: `${worldUserPos.top}%`,
           transform: 'translate(-50%, -100%)',
-          /* 点击地面等位移：平滑移动；撸猫路径由 App 内 animate 逐帧驱动，此处关闭 transition 避免双重插值 */
+          opacity: fullPresence ? 1 : 0.48,
           transition:
             motionPhase === 'petWalk'
-              ? 'none'
-              : 'left 0.52s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.52s cubic-bezier(0.25, 0.8, 0.25, 1)',
+              ? 'opacity 0.35s ease'
+              : 'opacity 0.35s ease, left 0.52s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.52s cubic-bezier(0.25, 0.8, 0.25, 1)',
         }}
       >
         <PixelSprite

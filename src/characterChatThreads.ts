@@ -88,6 +88,85 @@ export const CHARACTER_THREADS: Record<string, CharacterThread> = {
       { from: 'them', text: '辛苦各位，中午我请咖啡 ☕', speakerId: 'nova' },
     ],
   },
+  'opc-qinglan': {
+    name: 'OPC_青岚',
+    subtitle: 'Lounge',
+    messages: [
+      { from: 'them', text: '投影仪遥控器在你那边吗？' },
+      { from: 'me', text: '在的，要我拿过去吗？' },
+      { from: 'them', text: '麻烦放前台就好，谢谢！' },
+    ],
+  },
+  'opc-xuesong': {
+    name: 'OPC_雪松',
+    subtitle: 'Studio',
+    messages: [{ from: 'them', text: '今晚联调我晚到 15 分钟。' }, { from: 'me', text: 'OK，我帮你跟 Orion 说一声。' }],
+  },
+  'opc-chaoxi': {
+    name: 'OPC_潮汐',
+    subtitle: 'Plaza',
+    messages: [{ from: 'them', text: '长椅这边有人占了插座…' }, { from: 'me', text: '我去看看能不能协调。' }],
+  },
+  'opc-yanchi': {
+    name: 'OPC_砚池',
+    subtitle: 'Studio',
+    messages: [{ from: 'them', text: '设计稿 v3 已同步到共享盘。' }, { from: 'me', text: '收到，下午过一遍。' }],
+  },
+  'opc-xingzhu': {
+    name: 'OPC_星渚',
+    subtitle: 'Lounge',
+    messages: [{ from: 'them', text: '咖啡机又卡豆了 😅' }, { from: 'me', text: '我报修了，工单号发你。' }],
+  },
+  'opc-baiyu': {
+    name: 'OPC_白榆',
+    subtitle: 'Plaza',
+    messages: [{ from: 'them', text: '借个充电宝五分钟就还！' }, { from: 'me', text: '在包里自己拿。' }],
+  },
+  'opc-mozhu': {
+    name: 'OPC_墨竹',
+    subtitle: 'Studio',
+    messages: [{ from: 'them', text: 'CI badge 我换成新的了。' }],
+  },
+  'opc-hupo': {
+    name: 'OPC_琥珀',
+    subtitle: 'Lounge',
+    messages: [{ from: 'them', text: '周五团建统计人数截止到今晚。' }, { from: 'me', text: '我填好了。' }],
+  },
+  'opc-liuying': {
+    name: 'OPC_流萤',
+    subtitle: 'Plaza',
+    messages: [{ from: 'them', text: '东门快递我帮你签收了。' }],
+  },
+  'opc-beichen': {
+    name: 'OPC_北宸',
+    subtitle: 'Studio',
+    messages: [{ from: 'them', text: 'release note 模板要改一版吗？' }, { from: 'me', text: '先按旧的来，下周再统一。' }],
+  },
+  'opc-zhike': {
+    name: 'OPC_枳壳',
+    subtitle: 'Lounge',
+    messages: [{ from: 'them', text: '微波炉里是谁的饭盒忘拿了？' }],
+  },
+  'opc-yinhe': {
+    name: 'OPC_银禾',
+    subtitle: 'Plaza',
+    messages: [{ from: 'them', text: '草坪活动报名链接发我一下～' }],
+  },
+  'opc-qianyu': {
+    name: 'OPC_浅屿',
+    subtitle: 'Studio',
+    messages: [{ from: 'them', text: 'mock 数据我补了 20 条。' }, { from: 'me', text: 'Nice。' }],
+  },
+  'opc-wanzhao': {
+    name: 'OPC_晚照',
+    subtitle: 'Lounge',
+    messages: [{ from: 'them', text: '空调有点冷，有人同感吗' }],
+  },
+  'opc-tinglan': {
+    name: 'OPC_听澜',
+    subtitle: 'Plaza',
+    messages: [{ from: 'them', text: 'Plaza 晚上有露天电影吗？' }, { from: 'me', text: '海报写的是本周五。' }],
+  },
 };
 
 export function getCharacterThread(characterId: string): CharacterThread {

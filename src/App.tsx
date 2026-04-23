@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import { AnimatePresence, animate, motion, useMotionValue, useSpring } from 'framer-motion';
 import { usePlayerState } from './hooks/usePlayerState';
 import StudioZone from './components/scenes/StudioZone';
@@ -8,9 +8,13 @@ import StatusHUD from './components/StatusHUD';
 import MochiRoamer from './components/MochiRoamer';
 import WorldPlayerOverlay from './components/WorldPlayerOverlay';
 import FullScreenWeChatChat from './components/FullScreenWeChatChat';
+import WorldTaskBoard from './components/WorldTaskBoard';
+import TaskBoardDanmaku from './components/TaskBoardDanmaku';
 import type { PlayerStatus } from './hooks/usePlayerState';
 import {
   WORLD_USER_INITIAL,
+  WORLD_TOP_UI_RESERVE_PX,
+  WORLD_BOTTOM_PLAY_RESERVE_PX,
   worldUserPosNearCat,
   worldUserPosFromZonePointer,
   type WorldUserMotionPhase,
@@ -35,6 +39,11 @@ export default function App() {
   const mochiPettingRef = useRef(false);
   const [fullscreenChatCharacterId, setFullscreenChatCharacterId] = useState<string | null>(null);
   const [fullscreenChatScrollToMessageIndex, setFullscreenChatScrollToMessageIndex] = useState<number | null>(null);
+  const [threadLastMessagePreview, setThreadLastMessagePreview] = useState<Record<string, string>>({});
+
+  const handleThreadLastMessageChange = useCallback((threadId: string, text: string) => {
+    setThreadLastMessagePreview(prev => ({ ...prev, [threadId]: text }));
+  }, []);
 
   const openCharacterChat = useCallback((characterId: string, scrollToMessageIndex?: number) => {
     setFullscreenChatCharacterId(characterId);
@@ -47,10 +56,9 @@ export default function App() {
     worldUserPosRef.current = worldUserPos;
   }, [worldUserPos]);
 
-  const placeUserFromZone = (zoneIndex: number) => (localX: number, localY: number) => {
+  const placeUserFromZone = (zoneIndex: number) => (localX: number, localY: number, zoneInnerHeightPx: number) => {
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    setWorldUserPos(worldUserPosFromZonePointer(zoneIndex, localX, localY, vw, vh));
+    setWorldUserPos(worldUserPosFromZonePointer(zoneIndex, localX, localY, vw, zoneInnerHeightPx));
   };
 
   const rawX = useMotionValue(-window.innerWidth); // Start at Lounge (zone index 1)
@@ -64,6 +72,10 @@ export default function App() {
   const handleStatusChange = (status: PlayerStatus) => {
     setStatus(status);
     if (status !== 'SOCIALIZING') setMessengerActive(false);
+  };
+
+  const navigateToZone = (zoneIndex: 0 | 1 | 2) => {
+    handleStatusChange(ZONE_STATUS[zoneIndex]);
   };
 
   const handleTaskClick = (task: string) => {
@@ -144,37 +156,84 @@ export default function App() {
           height: '100dvh',
           position: 'relative',
           willChange: 'transform',
+          overflow: 'visible',
           x: springX,
         }}
       >
-        <div style={{ width: '100vw', height: '100dvh', flexShrink: 0 }}>
+        <div
+          style={
+            {
+              display: 'flex',
+              width: '300vw',
+              height: `calc(100dvh - ${WORLD_TOP_UI_RESERVE_PX}px - ${WORLD_BOTTOM_PLAY_RESERVE_PX}px)`,
+              marginTop: WORLD_TOP_UI_RESERVE_PX,
+              position: 'relative',
+              boxSizing: 'border-box',
+              ['--world-top-reserve' as string]: `${WORLD_TOP_UI_RESERVE_PX}px`,
+              ['--world-bottom-reserve' as string]: `${WORLD_BOTTOM_PLAY_RESERVE_PX}px`,
+            } as CSSProperties
+          }
+        >
+        <div
+          style={{
+            width: '100vw',
+            height: '100%',
+            flexShrink: 0,
+            minHeight: 0,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
           <StudioZone
             playerState={state}
             statusColor={color}
             userInputLocked={mochiPetting}
+            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(0)}
             onOpenCharacterChat={openCharacterChat}
+            onNavigateToZone={navigateToZone}
           />
         </div>
-        <div style={{ width: '100vw', height: '100dvh', flexShrink: 0 }}>
+        <div
+          style={{
+            width: '100vw',
+            height: '100%',
+            flexShrink: 0,
+            minHeight: 0,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
           <LoungeZone
             playerState={state}
             statusColor={color}
             onMessengerClick={() => setMessengerActive(v => !v)}
             messengerActive={messengerActive}
             userInputLocked={mochiPetting}
+            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(1)}
             onOpenCharacterChat={openCharacterChat}
+            onNavigateToZone={navigateToZone}
           />
         </div>
-        <div style={{ width: '100vw', height: '100dvh', flexShrink: 0 }}>
+        <div
+          style={{
+            width: '100vw',
+            height: '100%',
+            flexShrink: 0,
+            minHeight: 0,
+            overflow: 'visible',
+            position: 'relative',
+          }}
+        >
           <PlazaZone
             playerState={state}
             statusColor={color}
-            onTaskClick={handleTaskClick}
             userInputLocked={mochiPetting}
+            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(2)}
             onOpenCharacterChat={openCharacterChat}
+            onNavigateToZone={navigateToZone}
           />
         </div>
         <WorldPlayerOverlay
@@ -183,8 +242,16 @@ export default function App() {
           playerState={state}
           statusColor={color}
         />
-        <MochiRoamer pettingActive={mochiPetting} onPetCat={handlePetMochi} />
+        <MochiRoamer
+          pettingActive={mochiPetting}
+          onPetCat={handlePetMochi}
+          viewportZoneIndex={state.zoneIndex}
+        />
+        </div>
       </motion.div>
+
+      <WorldTaskBoard onTaskClick={handleTaskClick} />
+      <TaskBoardDanmaku />
 
       <StatusHUD
         currentStatus={state.status}
@@ -196,6 +263,7 @@ export default function App() {
         onDismissTask={() => setActiveTask(null)}
         onOpenCharacterChat={openCharacterChat}
         activeThreadId={fullscreenChatCharacterId}
+        threadLastMessagePreview={threadLastMessagePreview}
       />
 
       <AnimatePresence>
@@ -204,6 +272,7 @@ export default function App() {
             key={fullscreenChatCharacterId}
             characterId={fullscreenChatCharacterId}
             scrollToMessageIndex={fullscreenChatScrollToMessageIndex ?? undefined}
+            onLastMessageChange={handleThreadLastMessageChange}
             onClose={() => {
               setFullscreenChatCharacterId(null);
               setFullscreenChatScrollToMessageIndex(null);

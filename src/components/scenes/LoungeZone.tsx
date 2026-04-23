@@ -9,8 +9,10 @@ interface LoungeZoneProps {
   onMessengerClick: () => void;
   messengerActive: boolean;
   userInputLocked: boolean;
-  onWorldBackgroundClick: (localX: number, localY: number) => void;
+  zoneNavLocked: boolean;
+  onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
+  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
 function PixelSofa({ x, y }: { x: number; y: number }) {
@@ -135,15 +137,17 @@ export default function LoungeZone({
   onMessengerClick,
   messengerActive,
   userInputLocked,
+  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
+  onNavigateToZone,
 }: LoungeZoneProps) {
   const handleZoneClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (userInputLocked || e.button !== 0) return;
       if ((e.target as HTMLElement).closest('button, a, [role="dialog"], [role="button"]')) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top);
+      onWorldBackgroundClick(e.clientX - rect.left, e.clientY - rect.top, rect.height);
     },
     [onWorldBackgroundClick, userInputLocked],
   );
@@ -153,7 +157,8 @@ export default function LoungeZone({
       onClick={handleZoneClick}
       style={{
         width: '100vw',
-        height: '100dvh',
+        height: '100%',
+        minHeight: 0,
         position: 'relative',
         background: 'linear-gradient(180deg, #EDE8E0 36%, #D4B896 36%)',
         overflow: 'hidden',
@@ -189,17 +194,30 @@ export default function LoungeZone({
       <PixelCoffeeTable x={154} y={555} />
 
       {/* Floor plants */}
-      <PixelPlant x={306} y={480} size={0.9} />
-      <PixelPlant x={14} y={468} size={0.85} />
+      <PixelPlant x={306} y={372} size={0.9} />
+      <PixelPlant x={14} y={360} size={0.85} />
 
       {/* Doorway to Studio — left */}
-      <div
+      <button
+        type="button"
+        aria-label="前往 Studio"
+        disabled={zoneNavLocked}
+        onClick={e => {
+          e.stopPropagation();
+          onNavigateToZone(0);
+        }}
         style={{
           position: 'absolute',
           left: 0,
           top: '28%',
           width: 46,
           height: '42%',
+          zIndex: 6,
+          border: 'none',
+          margin: 0,
+          padding: 0,
+          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+          WebkitTapHighlightColor: 'transparent',
           background: 'linear-gradient(270deg, transparent, rgba(214,207,196,0.25))',
           borderRight: '3px solid #C8B89A',
           display: 'flex',
@@ -207,17 +225,32 @@ export default function LoungeZone({
           justifyContent: 'center',
         }}
       >
-        <div className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>← Studio</div>
-      </div>
+        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
+          ← Studio
+        </span>
+      </button>
 
       {/* Doorway to Plaza — right */}
-      <div
+      <button
+        type="button"
+        aria-label="前往 Plaza"
+        disabled={zoneNavLocked}
+        onClick={e => {
+          e.stopPropagation();
+          onNavigateToZone(2);
+        }}
         style={{
           position: 'absolute',
           right: 0,
           top: '28%',
           width: 46,
           height: '42%',
+          zIndex: 6,
+          border: 'none',
+          margin: 0,
+          padding: 0,
+          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
+          WebkitTapHighlightColor: 'transparent',
           background: 'linear-gradient(90deg, transparent, rgba(166,216,155,0.25))',
           borderLeft: '3px solid #8BC78A',
           display: 'flex',
@@ -225,8 +258,10 @@ export default function LoungeZone({
           justifyContent: 'center',
         }}
       >
-        <div className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>Plaza →</div>
-      </div>
+        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
+          Plaza →
+        </span>
+      </button>
 
       {/* Hermes — in doorway zone, clickable */}
       <motion.div

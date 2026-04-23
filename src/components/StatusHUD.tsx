@@ -38,6 +38,8 @@ const MOCK_CHATS: {
   name: string;
   time: string;
   unread?: number;
+  /** 置顶：折叠后从列表区隐藏，仅保留底部展开入口 */
+  pinned?: boolean;
   avatar: MockChatAvatar;
 }[] = [
   {
@@ -45,15 +47,58 @@ const MOCK_CHATS: {
     name: 'Studio 核心群',
     time: '刚刚',
     unread: 2,
+    pinned: true,
     avatar: { type: 'group', memberIds: ['user', 'hermes', 'orion', 'nova'] },
   },
-  { id: 'hermes', name: 'Hermes', time: '09:20', unread: 6, avatar: { type: 'sprite', variant: 'messenger', statusColor: '#FF9800' } },
-  { id: 'orion', name: 'Orion', time: '昨天', avatar: { type: 'sprite', variant: 'assistant2', statusColor: '#2196F3' } },
-  { id: 'nova', name: 'Nova', time: '星期二', avatar: { type: 'sprite', variant: 'assistant1', statusColor: '#4CAF50' } },
-  { id: 'mochi', name: 'Mochi', time: '08:12', avatar: { type: 'cat' } },
+  {
+    id: 'hermes',
+    name: 'Hermes',
+    time: '09:20',
+    unread: 6,
+    pinned: true,
+    avatar: { type: 'sprite', variant: 'messenger', statusColor: '#FF9800' },
+  },
+  {
+    id: 'orion',
+    name: 'Orion',
+    time: '昨天',
+    pinned: true,
+    avatar: { type: 'sprite', variant: 'assistant2', statusColor: '#2196F3' },
+  },
+  {
+    id: 'nova',
+    name: 'Nova',
+    time: '星期二',
+    pinned: true,
+    avatar: { type: 'sprite', variant: 'assistant1', statusColor: '#4CAF50' },
+  },
+  { id: 'mochi', name: 'Mochi', time: '08:12', pinned: true, avatar: { type: 'cat' } },
+  { id: 'opc-qinglan', name: 'OPC_青岚', time: '11:02', pinned: true, avatar: { type: 'sprite', variant: 'visitor1', statusColor: '#FF9800' } },
+  { id: 'opc-xuesong', name: 'OPC_雪松', time: '10:48', pinned: true, avatar: { type: 'sprite', variant: 'visitor2', statusColor: '#1ABC9C' } },
+  { id: 'opc-chaoxi', name: 'OPC_潮汐', time: '昨天', pinned: true, avatar: { type: 'sprite', variant: 'visitor3', statusColor: '#E91E63' } },
+  { id: 'opc-yanchi', name: 'OPC_砚池', time: '周一', pinned: true, avatar: { type: 'sprite', variant: 'agent', statusColor: '#9B59B6' } },
+  { id: 'opc-xingzhu', name: 'OPC_星渚', time: '周日', unread: 1, pinned: true, avatar: { type: 'sprite', variant: 'visitor1', statusColor: '#F39C12' } },
+  { id: 'opc-baiyu', name: 'OPC_白榆', time: '10:20', avatar: { type: 'sprite', variant: 'visitor2', statusColor: '#2196F3' } },
+  { id: 'opc-mozhu', name: 'OPC_墨竹', time: '09:55', avatar: { type: 'sprite', variant: 'assistant2', statusColor: '#27AE60' } },
+  { id: 'opc-hupo', name: 'OPC_琥珀', time: '09:40', unread: 3, avatar: { type: 'sprite', variant: 'visitor3', statusColor: '#E67E22' } },
+  { id: 'opc-liuying', name: 'OPC_流萤', time: '09:12', avatar: { type: 'sprite', variant: 'agent', statusColor: '#8E44AD' } },
+  { id: 'opc-beichen', name: 'OPC_北宸', time: '08:50', avatar: { type: 'sprite', variant: 'visitor1', statusColor: '#16A085' } },
+  { id: 'opc-zhike', name: 'OPC_枳壳', time: '08:44', avatar: { type: 'sprite', variant: 'assistant1', statusColor: '#E74C3C' } },
+  { id: 'opc-yinhe', name: 'OPC_银禾', time: '08:30', avatar: { type: 'sprite', variant: 'visitor2', statusColor: '#3498DB' } },
+  { id: 'opc-qianyu', name: 'OPC_浅屿', time: '08:22', avatar: { type: 'sprite', variant: 'visitor3', statusColor: '#C0392B' } },
+  { id: 'opc-wanzhao', name: 'OPC_晚照', time: '08:18', avatar: { type: 'sprite', variant: 'assistant2', statusColor: '#2980B9' } },
+  { id: 'opc-tinglan', name: 'OPC_听澜', time: '08:05', avatar: { type: 'sprite', variant: 'visitor1', statusColor: '#D35400' } },
 ];
 
 const DRAWER_THREAD_IDS = MOCK_CHATS.map(c => c.id);
+const MOCK_CHATS_PINNED = MOCK_CHATS.filter(c => c.pinned);
+const MOCK_CHATS_NORMAL = MOCK_CHATS.filter(c => !c.pinned);
+
+function initialUnreadByThread(): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const c of MOCK_CHATS) m[c.id] = c.unread ?? 0;
+  return m;
+}
 
 const GROUP_CELL_SPRITE_BUST_SCALE = 1.22;
 const GROUP_CELL_SPRITE_TOP_NUDGE = 1;
@@ -512,6 +557,8 @@ interface StatusHUDProps {
   onDismissTask: () => void;
   onOpenCharacterChat: (characterId: string, scrollToMessageIndex?: number) => void;
   activeThreadId?: string | null;
+  /** 会话列表副标题行：覆盖为「最后一条消息」文案（与全屏聊天实时同步） */
+  threadLastMessagePreview?: Record<string, string>;
 }
 
 const MODES: { status: PlayerStatus; emoji: string; label: string }[] = [
@@ -532,20 +579,39 @@ export default function StatusHUD({
   onDismissTask,
   onOpenCharacterChat,
   activeThreadId = null,
+  threadLastMessagePreview,
 }: StatusHUDProps) {
   const zoneIndex = STATUS_ZONE_INDEX[currentStatus];
+  const listPreviewLine = (threadId: string) =>
+    threadLastMessagePreview?.[threadId] ?? getLastChatMessagePreview(threadId);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [chatQuickMenuOpen, setChatQuickMenuOpen] = useState(false);
   const [quickActionBanner, setQuickActionBanner] = useState<string | null>(null);
+  /** true = 置顶区已折叠，列表中不展示置顶会话 */
+  const [pinnedChatsCollapsed, setPinnedChatsCollapsed] = useState(false);
   const chatSearchInputRef = useRef<HTMLInputElement>(null);
   const chatQuickMenuWrapRef = useRef<HTMLDivElement>(null);
+  const prevActiveThreadRef = useRef<string | null>(null);
+  const [unreadById, setUnreadById] = useState<Record<string, number>>(initialUnreadByThread);
 
   const chatSearchTrim = chatSearchQuery.trim();
   const searchHits = useMemo(() => searchChatThreads(chatSearchQuery, DRAWER_THREAD_IDS), [chatSearchQuery]);
   const contactHits = useMemo(() => searchHits.filter(h => h.type === 'contact'), [searchHits]);
   const messageHits = useMemo(() => searchHits.filter(h => h.type === 'message'), [searchHits]);
-  const totalUnread = useMemo(() => MOCK_CHATS.reduce((s, r) => s + (r.unread ?? 0), 0), []);
+  const totalUnread = useMemo(
+    () => DRAWER_THREAD_IDS.reduce((s, id) => s + (unreadById[id] ?? 0), 0),
+    [unreadById],
+  );
+
+  /** 离开某会话（关全屏或切到另一会话）后标为已读，清除列表红点 */
+  useEffect(() => {
+    const prev = prevActiveThreadRef.current;
+    if (prev !== null && prev !== activeThreadId) {
+      setUnreadById(u => ({ ...u, [prev]: 0 }));
+    }
+    prevActiveThreadRef.current = activeThreadId;
+  }, [activeThreadId]);
 
   useEffect(() => {
     if (!chatDrawerOpen) {
@@ -575,6 +641,7 @@ export default function StatusHUD({
     if (!chatDrawerOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (activeThreadId != null) return;
         if (chatQuickMenuOpen) {
           setChatQuickMenuOpen(false);
           return;
@@ -585,7 +652,7 @@ export default function StatusHUD({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [chatDrawerOpen, chatQuickMenuOpen]);
+  }, [chatDrawerOpen, chatQuickMenuOpen, activeThreadId]);
 
   const rowBase = {
     width: '100%' as const,
@@ -597,6 +664,93 @@ export default function StatusHUD({
     cursor: 'pointer' as const,
     textAlign: 'left' as const,
     boxSizing: 'border-box' as const,
+  };
+
+  const renderChatDrawerRow = (row: (typeof MOCK_CHATS)[number]) => {
+    const selected = activeThreadId != null && row.id === activeThreadId;
+    const unread = unreadById[row.id] ?? 0;
+    return (
+      <motion.button
+        key={row.id}
+        type="button"
+        onClick={() => {
+          onOpenCharacterChat(row.id);
+        }}
+        whileHover={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.26)' : 'rgba(0,0,0,0.04)' }}
+        whileTap={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.32)' : 'rgba(0,0,0,0.07)' }}
+        style={{
+          ...rowBase,
+          background: selected ? CHAT_DRAWER_ROW_SELECTED : 'transparent',
+          boxShadow: selected ? `inset 3px 0 0 ${WECHAT_GREEN}` : 'none',
+        }}
+      >
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <ChatRowAvatar name={row.name} avatar={row.avatar} />
+          {unread > 0 ? (
+            <span
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                minWidth: 16,
+                height: 16,
+                padding: '0 4px',
+                borderRadius: 8,
+                background: '#fa5151',
+                color: '#fff',
+                fontSize: 10,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            >
+              {unread > 99 ? '99+' : unread}
+            </span>
+          ) : null}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
+            <span
+              style={{
+                fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#191919',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {row.name}
+            </span>
+            <span
+              style={{
+                fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+                fontSize: 10,
+                color: '#b2b2b2',
+                flexShrink: 0,
+              }}
+            >
+              {row.time}
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+              fontSize: 11,
+              color: '#888888',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {listPreviewLine(row.id)}
+          </div>
+        </div>
+      </motion.button>
+    );
   };
 
   return (
@@ -801,6 +955,7 @@ export default function StatusHUD({
                   width: CHAT_LIST_PANEL_WIDTH,
                   flex: `0 0 ${CHAT_LIST_PANEL_WIDTH}px`,
                   minWidth: 0,
+                  minHeight: 0,
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%',
@@ -952,7 +1107,6 @@ export default function StatusHUD({
                             e.stopPropagation();
                             setChatQuickMenuOpen(false);
                             onOpenCharacterChat('team-core');
-                            setChatDrawerOpen(false);
                           }}
                           style={{
                             ...rowBase,
@@ -1028,94 +1182,41 @@ export default function StatusHUD({
                   {quickActionBanner}
                 </div>
               ) : null}
-              <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: CHAT_DRAWER_BG }}>
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  background: CHAT_DRAWER_BG,
+                }}
+              >
                 {!chatSearchTrim ? (
-                  MOCK_CHATS.map(row => {
-                    const selected = activeThreadId != null && row.id === activeThreadId;
-                    return (
-                      <motion.button
-                        key={row.id}
-                        type="button"
-                        onClick={() => {
-                          onOpenCharacterChat(row.id);
-                          setChatDrawerOpen(false);
-                        }}
-                        whileHover={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.26)' : 'rgba(0,0,0,0.04)' }}
-                        whileTap={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.32)' : 'rgba(0,0,0,0.07)' }}
-                        style={{
-                          ...rowBase,
-                          background: selected ? CHAT_DRAWER_ROW_SELECTED : 'transparent',
-                          boxShadow: selected ? `inset 3px 0 0 ${WECHAT_GREEN}` : 'none',
-                        }}
-                      >
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                          <ChatRowAvatar name={row.name} avatar={row.avatar} />
-                          {row.unread != null && row.unread > 0 ? (
-                            <span
-                              style={{
-                                position: 'absolute',
-                                top: -4,
-                                right: -4,
-                                minWidth: 16,
-                                height: 16,
-                                padding: '0 4px',
-                                borderRadius: 8,
-                                background: '#fa5151',
-                                color: '#fff',
-                                fontSize: 10,
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontFamily: 'system-ui, sans-serif',
-                              }}
-                            >
-                              {row.unread > 99 ? '99+' : row.unread}
-                            </span>
-                          ) : null}
+                  <>
+                    {!pinnedChatsCollapsed && MOCK_CHATS_PINNED.length > 0 ? (
+                      <>
+                        <div
+                          style={{
+                            padding: '6px 12px 2px',
+                            fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+                            fontSize: 11,
+                            color: '#888888',
+                          }}
+                        >
+                          置顶聊天
                         </div>
-                        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
-                            <span
-                              style={{
-                                fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: '#191919',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {row.name}
-                            </span>
-                            <span
-                              style={{
-                                fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
-                                fontSize: 10,
-                                color: '#b2b2b2',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {row.time}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
-                              fontSize: 11,
-                              color: '#888888',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {getLastChatMessagePreview(row.id)}
-                          </div>
-                        </div>
-                      </motion.button>
-                    );
-                  })
+                        {MOCK_CHATS_PINNED.map(renderChatDrawerRow)}
+                        <div
+                          style={{
+                            height: 1,
+                            margin: '4px 12px 6px',
+                            background: 'linear-gradient(90deg, transparent, #e0e0e0 12%, #e0e0e0 88%, transparent)',
+                          }}
+                        />
+                      </>
+                    ) : null}
+                    {MOCK_CHATS_NORMAL.map(renderChatDrawerRow)}
+                  </>
                 ) : searchHits.length === 0 ? (
                   <div
                     style={{
@@ -1150,13 +1251,13 @@ export default function StatusHUD({
                       const subMatch =
                         thread.subtitle && thread.subtitle.toLowerCase().includes(chatSearchTrim.toLowerCase());
                       const selected = activeThreadId != null && row.id === activeThreadId;
+                      const unread = unreadById[row.id] ?? 0;
                       return (
                         <motion.button
                           key={`search-contact-${row.id}`}
                           type="button"
                           onClick={() => {
                             onOpenCharacterChat(row.id);
-                            setChatDrawerOpen(false);
                             setChatSearchQuery('');
                           }}
                           whileHover={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.26)' : 'rgba(0,0,0,0.04)' }}
@@ -1169,7 +1270,7 @@ export default function StatusHUD({
                         >
                           <div style={{ position: 'relative', flexShrink: 0 }}>
                             <ChatRowAvatar name={row.name} avatar={row.avatar} />
-                            {row.unread != null && row.unread > 0 ? (
+                            {unread > 0 ? (
                               <span
                                 style={{
                                   position: 'absolute',
@@ -1189,7 +1290,7 @@ export default function StatusHUD({
                                   fontFamily: 'system-ui, sans-serif',
                                 }}
                               >
-                                {row.unread > 99 ? '99+' : row.unread}
+                                {unread > 99 ? '99+' : unread}
                               </span>
                             ) : null}
                           </div>
@@ -1222,7 +1323,7 @@ export default function StatusHUD({
                               {subMatch ? (
                                 <HighlightMatch text={thread.subtitle} query={chatSearchTrim} />
                               ) : (
-                                getLastChatMessagePreview(row.id)
+                                listPreviewLine(row.id)
                               )}
                             </div>
                           </div>
@@ -1254,7 +1355,6 @@ export default function StatusHUD({
                           type="button"
                           onClick={() => {
                             onOpenCharacterChat(hit.threadId, hit.messageIndex);
-                            setChatDrawerOpen(false);
                             setChatSearchQuery('');
                           }}
                           whileHover={{ backgroundColor: selected ? 'rgba(7, 193, 96, 0.26)' : 'rgba(0,0,0,0.04)' }}
@@ -1313,9 +1413,15 @@ export default function StatusHUD({
                   </>
                 )}
               </div>
-              <div
+              <button
+                type="button"
+                onClick={() => setPinnedChatsCollapsed(c => !c)}
+                disabled={MOCK_CHATS_PINNED.length === 0}
+                aria-expanded={!pinnedChatsCollapsed}
+                aria-label={pinnedChatsCollapsed ? '展开置顶聊天' : '折叠置顶聊天'}
                 style={{
                   flexShrink: 0,
+                  border: 'none',
                   borderTop: '1px solid #ebebeb',
                   padding: '8px 12px 10px',
                   display: 'flex',
@@ -1324,20 +1430,26 @@ export default function StatusHUD({
                   gap: 6,
                   fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
                   fontSize: 11,
-                  color: '#999',
+                  color: MOCK_CHATS_PINNED.length === 0 ? '#ccc' : '#999',
                   background: CHAT_DRAWER_BG,
-                  cursor: 'default',
+                  cursor: MOCK_CHATS_PINNED.length === 0 ? 'default' : 'pointer',
                   userSelect: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 <span style={{ fontSize: 12, opacity: 0.75 }} aria-hidden>
                   ☰
                 </span>
-                <span>折叠置顶聊天</span>
-                <span style={{ fontSize: 10, opacity: 0.6 }} aria-hidden>
-                  ▲
+                <span>
+                  {pinnedChatsCollapsed
+                    ? `展开置顶聊天（${MOCK_CHATS_PINNED.length}）`
+                    : '折叠置顶聊天'}
                 </span>
-              </div>
+                <span style={{ fontSize: 10, opacity: 0.6 }} aria-hidden>
+                  {pinnedChatsCollapsed ? '▼' : '▲'}
+                </span>
+              </button>
               </div>
             </motion.aside>
           </>
