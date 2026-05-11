@@ -6,10 +6,8 @@ interface StudioZoneProps {
   playerState: PlayerState;
   statusColor: string;
   userInputLocked: boolean;
-  zoneNavLocked: boolean;
   onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
-  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
 function PixelDesk({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
@@ -151,10 +149,8 @@ export default function StudioZone({
   playerState: _playerState,
   statusColor: _statusColor,
   userInputLocked,
-  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
-  onNavigateToZone,
 }: StudioZoneProps) {
   const handleZoneClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -198,72 +194,6 @@ export default function StudioZone({
       {/* ── Desk Row 2: Orion (centre) ── */}
       <PixelDesk x={134} y={412} />
 
-      {/* Doorway to Plaza — left edge（与 Lounge 右侧 Plaza 门镜像） */}
-      <button
-        type="button"
-        aria-label="前往 Plaza"
-        disabled={zoneNavLocked}
-        onClick={e => {
-          e.stopPropagation();
-          onNavigateToZone(2);
-        }}
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: '28%',
-          width: 46,
-          height: '42%',
-          zIndex: 6,
-          border: 'none',
-          margin: 0,
-          padding: 0,
-          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-          background: 'linear-gradient(90deg, rgba(166,216,155,0.25), transparent)',
-          borderRight: '3px solid #8BC78A',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
-          Plaza →
-        </span>
-      </button>
-
-      {/* Doorway to Lounge — right edge（与 Lounge 门同宽） */}
-      <button
-        type="button"
-        aria-label="前往 Lounge"
-        disabled={zoneNavLocked}
-        onClick={e => {
-          e.stopPropagation();
-          onNavigateToZone(1);
-        }}
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: '28%',
-          width: 46,
-          height: '42%',
-          zIndex: 6,
-          border: 'none',
-          margin: 0,
-          padding: 0,
-          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-          background: 'linear-gradient(90deg, transparent, rgba(230,244,234,0.4))',
-          borderLeft: '3px solid #C8B89A',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
-          Lounge →
-        </span>
-      </button>
-
       {/* Nova at desk 1-right */}
       <div
         role="button"
@@ -301,7 +231,7 @@ export default function StudioZone({
             onOpenCharacterChat('orion');
           }
         }}
-        style={{ position: 'absolute', left: 134, top: 358, cursor: 'pointer' }}
+        style={{ position: 'absolute', left: 134, top: `${(358 / 800) * 100}%`, cursor: 'pointer' }}
       >
         <PixelSprite variant="assistant2" name="Orion" statusColor="#2196F3" scale={2.2} />
       </div>

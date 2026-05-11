@@ -9,10 +9,8 @@ interface LoungeZoneProps {
   onMessengerClick: () => void;
   messengerActive: boolean;
   userInputLocked: boolean;
-  zoneNavLocked: boolean;
   onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
-  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
 function PixelSofa({ x, y }: { x: number; y: number }) {
@@ -137,10 +135,8 @@ export default function LoungeZone({
   onMessengerClick,
   messengerActive,
   userInputLocked,
-  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
-  onNavigateToZone,
 }: LoungeZoneProps) {
   const handleZoneClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -197,75 +193,9 @@ export default function LoungeZone({
       <PixelPlant x={306} y={372} size={0.9} />
       <PixelPlant x={14} y={360} size={0.85} />
 
-      {/* Doorway to Studio — left */}
-      <button
-        type="button"
-        aria-label="前往 Studio"
-        disabled={zoneNavLocked}
-        onClick={e => {
-          e.stopPropagation();
-          onNavigateToZone(0);
-        }}
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: '28%',
-          width: 46,
-          height: '42%',
-          zIndex: 6,
-          border: 'none',
-          margin: 0,
-          padding: 0,
-          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-          background: 'linear-gradient(270deg, transparent, rgba(214,207,196,0.25))',
-          borderRight: '3px solid #C8B89A',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
-          ← Studio
-        </span>
-      </button>
-
-      {/* Doorway to Plaza — right */}
-      <button
-        type="button"
-        aria-label="前往 Plaza"
-        disabled={zoneNavLocked}
-        onClick={e => {
-          e.stopPropagation();
-          onNavigateToZone(2);
-        }}
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: '28%',
-          width: 46,
-          height: '42%',
-          zIndex: 6,
-          border: 'none',
-          margin: 0,
-          padding: 0,
-          cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-          background: 'linear-gradient(90deg, transparent, rgba(166,216,155,0.25))',
-          borderLeft: '3px solid #8BC78A',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
-          Plaza →
-        </span>
-      </button>
-
       {/* Hermes — in doorway zone, clickable */}
       <motion.div
-        style={{ position: 'absolute', left: 28, top: 312, zIndex: 10 }}
+        style={{ position: 'absolute', left: 28, top: `${(312 / 600) * 100}%`, zIndex: 10 }}
         animate={{
           x: messengerActive ? 64 : 0,
           y: [0, -4, 0],

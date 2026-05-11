@@ -74,10 +74,6 @@ export default function App() {
     if (status !== 'SOCIALIZING') setMessengerActive(false);
   };
 
-  const navigateToZone = (zoneIndex: 0 | 1 | 2) => {
-    handleStatusChange(ZONE_STATUS[zoneIndex]);
-  };
-
   const handleTaskClick = (task: string) => {
     setActiveTask(task);
     setStatus('WORKING');
@@ -188,10 +184,8 @@ export default function App() {
             playerState={state}
             statusColor={color}
             userInputLocked={mochiPetting}
-            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(0)}
             onOpenCharacterChat={openCharacterChat}
-            onNavigateToZone={navigateToZone}
           />
         </div>
         <div
@@ -210,10 +204,8 @@ export default function App() {
             onMessengerClick={() => setMessengerActive(v => !v)}
             messengerActive={messengerActive}
             userInputLocked={mochiPetting}
-            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(1)}
             onOpenCharacterChat={openCharacterChat}
-            onNavigateToZone={navigateToZone}
           />
         </div>
         <div
@@ -230,10 +222,8 @@ export default function App() {
             playerState={state}
             statusColor={color}
             userInputLocked={mochiPetting}
-            zoneNavLocked={mochiPetting || transitioning}
             onWorldBackgroundClick={placeUserFromZone(2)}
             onOpenCharacterChat={openCharacterChat}
-            onNavigateToZone={navigateToZone}
           />
         </div>
         <WorldPlayerOverlay

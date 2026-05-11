@@ -7,10 +7,8 @@ interface PlazaZoneProps {
   playerState: PlayerState;
   statusColor: string;
   userInputLocked: boolean;
-  zoneNavLocked: boolean;
   onWorldBackgroundClick: (localX: number, localY: number, zoneInnerHeightPx: number) => void;
   onOpenCharacterChat: (characterId: string) => void;
-  onNavigateToZone: (zoneIndex: 0 | 1 | 2) => void;
 }
 
 /** 布局坐标系最大宽（略大于最右装饰） */
@@ -127,10 +125,8 @@ export default function PlazaZone({
   playerState: _playerState,
   statusColor: _statusColor,
   userInputLocked,
-  zoneNavLocked,
   onWorldBackgroundClick,
   onOpenCharacterChat,
-  onNavigateToZone,
 }: PlazaZoneProps) {
   const [plazaScale, setPlazaScale] = useState(1);
   const stageWrapRef = useRef<HTMLDivElement>(null);
@@ -201,37 +197,6 @@ export default function PlazaZone({
           alignItems: 'flex-start',
         }}
       >
-        <button
-          type="button"
-          aria-label="前往 Lounge"
-          disabled={zoneNavLocked}
-          onClick={e => {
-            e.stopPropagation();
-            onNavigateToZone(1);
-          }}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: '28%',
-            width: 46,
-            height: '42%',
-            zIndex: 6,
-            border: 'none',
-            margin: 0,
-            padding: 0,
-            cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-            background: 'linear-gradient(270deg, transparent, rgba(237,232,224,0.35))',
-            borderRight: '3px solid #C8B89A',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35, transform: 'rotate(180deg)' }}>
-            ← Lounge
-          </span>
-        </button>
         <div
           style={{
             width: PLAZA_LAYOUT_W,
@@ -316,37 +281,6 @@ export default function PlazaZone({
             <PixelSprite variant="visitor3" name="OPC_42" statusColor="#E91E63" scale={npcSpriteScale} />
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="前往 Studio"
-          disabled={zoneNavLocked}
-          onClick={e => {
-            e.stopPropagation();
-            onNavigateToZone(0);
-          }}
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '28%',
-            width: 46,
-            height: '42%',
-            zIndex: 6,
-            border: 'none',
-            margin: 0,
-            padding: 0,
-            cursor: zoneNavLocked ? 'not-allowed' : 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-            background: 'linear-gradient(90deg, rgba(214,207,196,0.25), transparent)',
-            borderLeft: '3px solid #C8B89A',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span className="zone-badge" style={{ writingMode: 'vertical-rl', opacity: 0.35 }}>
-            Studio →
-          </span>
-        </button>
       </div>
     </div>
   );

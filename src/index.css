@@ -116,12 +116,3 @@ svg.sprite {
   overflow: visible;
 }
 
-/* Zone labels */
-.zone-badge {
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: rgba(0,0,0,0.35);
-}
